@@ -44,7 +44,7 @@ class ImageProcessor(object):
     @classmethod
     def augment_data(cls, img, y):
         """
-        https://chatbotslife.com/using-augmentation-to-mimic-human-driving-496b569760a9
+        All data augmenting methods are applied here.
         """
         img, y = cls.shift_image(img, y)
         img, y = cls.flip_image(img, y)
@@ -71,6 +71,7 @@ class ImageProcessor(object):
     @classmethod
     def perturb_angle(cls, angle):
         """
+        Perturb angle: let the model accept many angles for a given image
         https://medium.com/@acflippo/cloning-driving-behavior-by-augmenting-steering-angles-5faf7ea8a125#.9qo2nhv3o
         """
         delta = 0.01
@@ -80,6 +81,7 @@ class ImageProcessor(object):
     def shift_image(cls, img, y):
         """
         Shift: simulate different position on the road, up hill, down hill
+        https://chatbotslife.com/using-augmentation-to-mimic-human-driving-496b569760a9
         """
         if np.random.uniform() > .25:
             return img, y
@@ -121,6 +123,7 @@ class ImageProcessor(object):
     def add_shadow(cls, img):
         """
         Shadow: simulate shadow cast on the road
+        https://chatbotslife.com/using-augmentation-to-mimic-human-driving-496b569760a9
         """
         rows, cols, _ = img.shape
         top_x = 0
@@ -215,20 +218,28 @@ class BaseImageDataset(object):
 
         self.SIZE_SCALE = 1
 
+        #: Generated train data
         self.X_train = None
         self.y_train = None
+
+        #: Raw train data
         self._X_train = None
         self._y_train = None
         self.train_size = 0
 
+        #: Generated validation data
         self.X_validate = None
         self.y_validate = None
+
+        #: Raw validation data
         self._X_validate = None
         self._y_validate = None
         self.validation_size = 0
 
+        #: test data percentage
         self._test_size = test_size
 
+        # initialize
         self.load_data()
 
     @property
@@ -250,6 +261,8 @@ class BaseImageDataset(object):
 
     def load_data(self):
         """
+        Load data from csv file and store image metadata
+        into data structure.
         """
         df = pd.read_csv(self.LOG_PATH)
 
@@ -276,7 +289,7 @@ class BaseImageDataset(object):
 
 
     ##########################################################################
-    ## Data
+    ## Generate fixed data
     ##########################################################################
     @property
     def train_data(self):
@@ -303,15 +316,19 @@ class BaseImageDataset(object):
                 img          = ImageProcessor.preprocess_image(img)
                 img, new_out = ImageProcessor.augment_data(img, new_out)
 
+                # skip a certain amount of small angles
                 if abs(new_out) > 0.1 or np.random.uniform() > skip_rate:
                     X.append(img)
                     y.append(new_out)
 
+                # add flipped data to balance left turns and right turns
                 if abs(new_out) > 0.1:
-                    img, new_out = ImageProcessor.flip_image(img, new_out, random=False)
+                    img, new_out = ImageProcessor.flip_image(img, new_out,
+                                                             random=False)
                     X.append(img)
                     y.append(new_out)
 
+        # Additional randomization
         #shuffled_indexes = np.arange(len(X))
         #shffuled_indexes = np.random.shuffle(shuffled_indexes)
         #return np.array(X)[shuffled_indexes], np.array(y)[shuffled_indexes]
@@ -326,7 +343,8 @@ class BaseImageDataset(object):
 
     @property
     def validation_data_generator(self):
-        return self.data_generator(self._X_validate, self._y_validate, skip_rate=0)
+        return self.data_generator(
+                self._X_validate, self._y_validate, skip_rate=0)
 
     def data_generator(self, X, y, batch_size=128, skip_rate=.8):
         """
@@ -368,9 +386,11 @@ class UdacityDataset(BaseImageDataset):
     LOG_PATH = os.path.join(BASE_PATH, 'driving_log.csv')
 
 
-# Network definitions
+##############################################################################
+## Network definitions
+##############################################################################
 class NetworkModel(object):
-    """ """
+    """ Base network model """
 
     def __init__(self, init='he_normal', activation='elu', dropout=0.5,
             batch_size=256):
@@ -396,10 +416,13 @@ class NetworkModel(object):
         raise NotImplementedError
 
     def _get_input_shape(self):
-        """ """
+        """ Fixed input shape """
         return IMG_SHP
 
     def fit(self, X_train, y_train, X_validate, y_validate, nb_epoch):
+        """
+        Use fixed dataset to train the model.
+        """
         early_stop = EarlyStopping(monitor='val_loss',
                 min_delta=0.0001, patience=5)
         checkpoint = ModelCheckpoint(self._weights_filename,
@@ -419,7 +442,9 @@ class NetworkModel(object):
 
     def fit_generator(self, train_gen, val_gen, nb_epoch,
             samples_per_epoch, nb_val_samples):
-
+        """
+        Train model with data generator.
+        """
         batch_size = self.batch_size
         samples_per_epoch = math.ceil(samples_per_epoch/batch_size) * batch_size
         nb_val_samples = math.ceil(nb_val_samples/batch_size) * batch_size
@@ -446,12 +471,18 @@ class NetworkModel(object):
         return self.model.predict(imgs)
 
     def save_model(self, name_prefix=''):
+        """
+        Save model to json file.
+        """
         with open(name_prefix + self._model_filename, 'w') as f:
             json.dump(self.model.to_json(), f)
 
         print('Model saved. {}'.format(self._model_filename))
 
     def save(self, name_prefix=''):
+        """
+        Save model and weights.
+        """
         with open(name_prefix + self._model_filename, 'w') as f:
             json.dump(self.model.to_json(), f)
         self.model.save_weights(name_prefix + self._weights_filename)
@@ -460,6 +491,10 @@ class NetworkModel(object):
             self._model_filename, self._weights_filename))
 
     def restore(self, name_prefix=''):
+        """
+        Restore model from .json and .h5 files. The file name should
+        match the network class name.
+        """
         self._model = None
         model_json = {}
 
@@ -473,14 +508,8 @@ class NetworkModel(object):
         self.model.load_weights(name_prefix + self._weights_filename)
         print('Model loaded.')
 
-    def __str__(self):
-        if self.model:
-            return self.model.summary()
-        return ''
-
 
 class NvidiaNet(NetworkModel):
-    """ """
 
     @property
     def model(self):
@@ -500,8 +529,6 @@ class NvidiaNet(NetworkModel):
         # nomalization
         model.add(Lambda(lambda x: x/127.5 - 1,
             input_shape=input_shape))
-
-        #model.add(Convolution2D( 3, 1, 1, subsample=(1, 1), **kwargs))
 
         model.add(Convolution2D(24, 5, 5, subsample=(2, 2), **kwargs))
         model.add(Convolution2D(36, 5, 5, subsample=(2, 2), **kwargs))
