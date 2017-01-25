@@ -4,7 +4,6 @@ In this project a convolutional neural network is built for steering a car in a 
 
 
 ## Model Architecture
----
 
 There are serveral popular models that has been built for the exact task, for example [Nvidia's](http://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf) and [CommaAI's](https://github.com/commaai/research/blob/master/train_steering_model.py) models. In this project Nvidia's model, CommaAI's model, and my own customized model are used for experiment and the final result came from Nvidia's model.
 
@@ -32,7 +31,6 @@ Total params: 1,595,511
 
 
 ## Data Preparation & Training Approach
----
 
 Before training, the data should be collected and processed into a format that can be consumed by the model.
 
@@ -47,7 +45,6 @@ There are 2 ways of feeding data to fit the model. One is feeding in all prepare
 
 4. Avoiding zero angle dominance
 As seen in the follwoing diagram, the zero steering angle is dominating the dataset. In order to balance the data, a small angle dropping parameter is given. In the fixed size dataset approach, 20% of small angles will be dropped. In generator approach, the dropping rate goes from 80% decreasing half of the proportion each time down to 0. The idea came from [Scott Penberthy](https://github.com/drscott173/sdc-ghostrider). The result seems pretty good by focusing on the turns at the beginning of the training, then adding the small angles back at the later training epochs.
-
 ![](images/angle_distribution.png?raw=true "Angle distribution")
 
 5. Early stopping
@@ -55,46 +52,36 @@ It is very hard to decide how many epochs should be used while training. Sometim
 
 
 ## Data Augmentation & Preprocessing
----
 
 Preprocessing is applied to all images that is consumed by the model including the image for predictions.
 
 1. **Cropping:** Remove unrelated parts of the image (e.g. background, car hood)
-
 ![](images/crop.png?raw=true "")
 
-2. **Scaling:** To Improve the performance by shrinking the size
-
+2. **Scaling:** To Improve the performance by shrinking the size.
 ![](images/scale.png?raw=true "")
 
 3. **Color space:** Use YUV as Nvidia model suggests.
-
 ![](images/color.png?raw=true "")
 
 Data augmentation is very important in this project. The data provided by Udacity is not enough for training a generalized model, so we have to create some variations from the existing data to teach the model what should be ignored and what should be focused. Most of the ideas are learned from [Vivek Yadav's article](https://chatbotslife.com/using-augmentation-to-mimic-human-driving-496b569760a9#.297rvhfqn).
 
 1. **Side cameras:** Side camera images can be used to simulate a car wandering of to the side of the road, so we can apply a small steering angle to the opposite side to recover.
-
 ![](images/side.png?raw=true "")
 
 2. **Shift:** Shifting the image horizontally can be seen as a car on a different position on the road, so we can also apply a small steering angle to steer the car back to the center. Shifting vertically can be seen as uphill or downhill, which just make the model recognize more variations.
-
 ![](images/shift.png?raw=true "")
 
 3. **Horizontal flip:** Flipping image can balance the number of left turns and right turns.
-
 ![](images/flip.png?raw=true "")
 
 4. **Brightness:** Adjusting brightness can simulate the day or night conditions.
-
 ![](images/brightness.png?raw=true "")
 
 5. **Shadow:** Adding random line crossing the image and darkening the color on the one side to simulate the shadow cast from the environment. This is a brillient idea.
-
 ![](images/shadow.png?raw=true "")
 
 ## Reflection
----
 1. Randomization in splitting dataset and augmenting data cause the training result qutie unstable. Sometimes, the validation loss sticks in high number. The same setting should be trained several times to make sure it is working or not. It is probably better to generate the data and store it rather then generating it each time.
 
 2. Data augmentation is as important as selecting model. Imbalanced data, incorrect tweaking angles, and lack of variation lead the model to bad result.
