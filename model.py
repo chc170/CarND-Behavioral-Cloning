@@ -111,10 +111,12 @@ class ImageProcessor(object):
         """
         Brightness: simulate different time in the day
         """
-        factor = factor or np.random.uniform(0.15, 1.2)
         img = cv2.cvtColor(img, cv2.COLOR_YUV2BGR)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+        factor = factor or np.random.uniform(0.15, 1.2)
         img[:,:,2] = (img[:,:,2] * factor).astype('uint8')
+
         img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
         return img
@@ -125,21 +127,24 @@ class ImageProcessor(object):
         Shadow: simulate shadow cast on the road
         https://chatbotslife.com/using-augmentation-to-mimic-human-driving-496b569760a9
         """
-        rows, cols, _ = img.shape
-        top_x = 0
-        top_y = np.random.uniform(cols)
-
-        bot_x = rows
-        bot_y = np.random.uniform(cols)
-
         img = cv2.cvtColor(img, cv2.COLOR_YUV2BGR)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
 
-        X_m, Y_m = np.mgrid[0:rows,0:cols]
+        rows, cols, _ = img.shape
+
+        top_x = 0
+        bot_x = rows
+        top_y = np.random.uniform(cols)
+        bot_y = np.random.uniform(cols)
+
+        # generate a mask that separate the image into
+        # left and right parts
+        X_m, Y_m = np.mgrid[0:rows, 0:cols]
         mask = np.zeros_like(img[:,:,1])
         mask[(  X_m - top_x)*(bot_y - top_y) -
              (bot_x - top_x)*(  Y_m - top_y) >= 0] = 1
 
+        # darken one side of the image
         bright = np.random.uniform(0.15, 0.95)
         mask = (mask == np.random.randint(2))
         img[:,:,1][mask] = img[:,:,1][mask] * bright
