@@ -48,6 +48,7 @@ class ImageProcessor(object):
         """
         img, y = cls.shift_image(img, y)
         img, y = cls.flip_image(img, y)
+        img, y = cls.shift_image(img, y, 50, 5)
 
         img = cls.change_brightness(img)
         img = cls.add_shadow(img)
@@ -78,7 +79,7 @@ class ImageProcessor(object):
         return angle * np.random.uniform(1-delta, 1+delta)
 
     @classmethod
-    def shift_image(cls, img, y):
+    def shift_image(cls, img, y, max_dx=25, max_dy=20):
         """
         Shift: simulate different position on the road, up hill, down hill
         https://chatbotslife.com/using-augmentation-to-mimic-human-driving-496b569760a9
@@ -86,7 +87,6 @@ class ImageProcessor(object):
         if np.random.uniform() > .25:
             return img, y
 
-        max_dx, max_dy = 50, 20
         dx = np.random.uniform(-max_dx, max_dx)
         dy = np.random.uniform(-max_dy, max_dy)
         y += dx / max_dx * .2
